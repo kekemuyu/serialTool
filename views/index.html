@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title></title>
+		<link rel="stylesheet" href="/static/bootstrap-3.3.7/css/bootstrap.min.css">
+		<script type="text/javascript" src="/static/js/jquery.min.js"></script>
+		<script type="text/javascript" src="/static/bootstrap-3.3.7/js/bootstrap.min.js"></script>
+	</head>
+
+	<body>
+		<nav class="navbar navbar-default navbar-fixed-top" style="background-color: #009966;">
+			<div class="container navbar-left">
+				<div class="navbar-header">
+					<!--<a class="navbar-brand " href="#">
+						<img src="img/rtlogo.png" width="25px" height="25px" onclick="menu()">
+					</a>-->
+					<text class="navbar-text" style="color: white;font-size: 20px;">串口调试助手</text>
+
+					<text id="serialID" class="navbar-text" style="color: white;font-size: 20px;"></text>
+
+					<text id="serialStatus" class="navbar-text" style="color: white;font-size: 20px;"></text>
+				</div>
+
+			</div>
+		</nav>
+		<div class="col-sm-12" id="contentDis " style="padding-top: 100px; ">
+			<div class="col-sm-3">
+				<div class="panel panel-default">
+					<div class="panel-heading">串口配置</div>
+					<div class="panel-body">
+						<text>串口号：</text>
+						<select id="portName" style="width:100px">
+							<option value="">COM1</option>
+							<option value="">COM2</option>
+							<option value="">COM3</option>
+							<option value="">COM4</option>
+							<option value="">COM5</option>
+							<option value="">COM6</option>
+							<option value="">COM7</option>
+							<option value="">COM8</option>
+							<option value="">COM9</option>
+							<option value="">COM10</option>
+							<option value="">COM11</option>
+						</select>
+						<br/><br/>
+						<text>波特率：</text>
+						<select id="baudRate" style="width:100px">
+							<option value="">1200</option>
+							<option value="">2400</option>
+							<option value="">4800</option>
+							<option value="" selected="selected">9600</option>
+							<option value="">115200</option>
+						</select><br/><br/>
+						<text>校验位：</text>
+						<select id="parityMode" style="width:100px">
+							<option value="">none</option>
+							<option value="">odd</option>
+							<option value="">even</option>
+						</select><br/><br/>
+						<text>数据位：</text>
+						<select id="dataBits" style="width:100px">
+							<option value="">8</option>
+							<option value="">7</option>
+							<option value="">6</option>
+							<option value="">5</option>
+						</select><br/><br/>
+						<text>停止位：</text>
+						<select id="stopBits" style="width:100px">
+							<option value="">1</option>
+							<option value="">2</option>
+						</select><br/><br/>
+						<button class="btn btn-info" onclick="serialOpen()">打开</button>
+						<button class="btn btn-info" style="margin-left: 20px;" onclick="serialClose()">关闭</button>
+					</div>
+				</div>
+				<div class="panel panel-default">
+					<div class="panel-heading">控制</div>
+					<div class="panel-body">
+						<input  type="checkbox" name="options" id="hexOption"> 16进制/字符串:发送
+						<br/>
+						<br/>
+						<input  type="checkbox" name="options2" id="hexOption2"> 16进制/字符串:接收
+						<br/>
+						<br/>
+						<button class="btn btn-info" id="receiverClear" onclick="receiverClear()">
+						清空接收区
+						</button>
+					</div>
+
+				</div>
+			</div>
+			<div class="col-sm-9">
+				<textarea rows="20" cols="100" id="receiverText">欢迎使用网页版串口助手。</textarea>
+				<div style="margin-top: 10px;">
+					<textarea rows="1" cols="90" style="float: left;" id="sendText"></textarea>
+					<button class="btn-info" style="margin-left: 10px;" onclick="serialSend()">
+					发送
+					</button>
+				</div>
+			               
+		</div>
+	</body>
+   
+	<script type="text/javascript ">
+		var id = "";
+        //生成无重复id
+		function GenNonDuplicateID(randomLength) {
+			return Number(Math.random().toString().substr(3, randomLength) + Date.now()).toString(36)
+		}
+
+		id = GenNonDuplicateID(8);
+		window.onload = function() {
+			document.getElementById("serialID").innerHTML = "(id:" + id + ")";
+			serialReceive();
+		}
+
+		var opt = {
+			portName: "",
+			baudRate: 9600,
+			parityMode: 0,
+			dataBits: 8,
+			stopBits: 1
+		};
+        
+        $("#hexOption2").change(function() { 
+        	checked="false";
+        	if(document.getElementById("hexOption2").checked){
+        		checked="true"
+        	}
+　　		$.ajax({
+				type: "get",
+				url: "http://127.0.0.1:8080/serial/receive/type?type=" + checked,
+				dataType: 'json',
+				contentType: "application/json;charset=utf-8",
+				success: function(data) {
+					console.log(JSON.stringify(data));
+				},
+				error: function(data) {
+					console.log(JSON.stringify(data));
+					$('#serialStatus').innerHTML = "发送失败";
+				}
+			});
+		});
+        //注册websocket服务，接收服务端的串口数据
+		function serialReceive() {
+			var ws = new WebSocket('ws://' + "127.0.0.1:8080/serial/receive?id="+id);
+            ws.onmessage = function(e) {
+                console.log(event.data);
+                text=JSON.parse(event.data).data;
+                document.getElementById("receiverText").value = document.getElementById("receiverText").value+text ;
+            };
+		}
+        //串口发送
+		function serialSend() {
+			console.log(document.getElementById("sendText").value.length);
+			if(document.getElementById("sendText").value.length == 0) {
+				alert("发送内容不能为空");
+				return;
+			}
+
+			console.log(document.getElementById("hexOption").checked);
+			hexOption=document.getElementById("hexOption").checked;
+			
+
+
+			var text = {
+				type: 0,
+				data: document.getElementById("sendText").value
+			};
+            
+            //是否选中16进制
+            if(hexOption){
+            	text.type=1;	
+            }else{
+            	text.type=0;
+            }
+
+			$.ajax({
+				type: "post",
+				url: "http://127.0.0.1:8080/serial/send/" + id,
+				dataType: 'json',
+				contentType: "application/json;charset=utf-8",
+				data: JSON.stringify(text),
+				success: function(data) {
+					console.log(JSON.stringify(data));
+					for(var i in data) {
+						console.log(i, data["code"]);
+					}
+					document.getElementById("serialStatus").innerHTML = data["message"];
+				},
+				error: function(data) {
+					console.log(JSON.stringify(data));
+					$('#serialStatus').innerHTML = "发送失败";
+				}
+			});
+		}
+        //清空接收区
+		function receiverClear() {
+			console.log("clear");
+			document.getElementById("receiverText").value = "";
+		}
+        //关闭串口
+		function serialClose() {
+			$.ajax({
+				type: "post",
+				url: "http://127.0.0.1:8080/serial/close/" + id,
+				dataType: 'json',
+				contentType: "application/json;charset=utf-8",
+				success: function(data) {
+					console.log(JSON.stringify(data));
+					for(var i in data) {
+						console.log(i, data["code"]);
+					}
+					document.getElementById("serialStatus").innerHTML = data["message"];
+				},
+				error: function(data) {
+					console.log(JSON.stringify(data));
+					$('#serialStatus').innerHTML = "关闭失败";
+				}
+			});
+		}
+        //打开串口
+		function serialOpen() {
+			opt.portName = $('#portName option:selected').text();
+			opt.baudRate = parseInt($('#baudRate option:selected').text());
+			tmp = $('#parityMode option:selected').text();
+			switch(tmp) {
+				case "none":
+					opt.parityMode = 0;
+					break;
+				case "odd":
+					opt.parityMode = 1;
+					break;
+				case "even":
+					opt.parityMode = 2;
+					break;
+			}
+			opt.dataBits = parseInt($('#dataBits option:selected').text());
+			opt.stopBits = parseInt($('#stopBits option:selected').text());
+
+			$.ajax({
+				type: "post",
+				url: "http://127.0.0.1:8080/serial/open/" + id,
+				dataType: 'json',
+				contentType: "application/json;charset=utf-8",
+				data: JSON.stringify(opt),
+				success: function(data) {
+					console.log(JSON.stringify(data),data.code);
+					document.getElementById("serialStatus").innerHTML = data["message"];
+					
+				},
+				error: function(data) {
+					console.log(JSON.stringify(data));
+					$('#serialStatus').innerHTML = "打开失败";
+				}
+			});
+		}
+	</script>
+
+</html>
