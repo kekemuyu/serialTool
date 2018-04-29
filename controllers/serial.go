@@ -18,6 +18,33 @@ var Serials map[string]io.ReadWriteCloser
 
 var ReceiverWs = make(map[string]*websocket.Conn, 100)
 
+//字符串每隔N个字符用某个字符串分割
+func SpliteN(src string, sep string, n int) (des string) {
+	if len(src) == 0 {
+		return ""
+	}
+	tempN := len(src) / n
+	tempN2 := len(src) % n
+
+	temp := make([]string, tempN+1)
+	if tempN == 0 {
+		return src
+	}
+	var temp2 = make([]string, 0)
+	for k, _ := range temp {
+		if k == tempN {
+			temp2 = append(temp2, src[n*k:(n*k+tempN2)])
+			temp2 = append(temp2, sep)
+			break
+		}
+		temp2 = append(temp2, src[n*k:(n*k+n)])
+		temp2 = append(temp2, sep)
+	}
+	for _, v := range temp2 {
+		des += v
+	}
+	return des
+}
 func init() {
 	Serials = make(map[string]io.ReadWriteCloser)
 
@@ -30,6 +57,7 @@ func init() {
 						data := string(tmp[:n])
 						if ReceiveType == 1 {
 							data = hex.EncodeToString(tmp[:n])
+							data = SpliteN(data, " ", 2)
 						}
 						msg := map[string]interface{}{"code": 0, "message": "serial receive success", "id": k, "data": data}
 						err := v.WriteJSON(msg)
